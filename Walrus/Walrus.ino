@@ -321,7 +321,7 @@ void Encode() {
       else {
         encodeASCIItoCW(text[i]);
         Serial.println(ccode);
-        for (int j = 0; j < ccode.length()-1; j++) {            // -1 because when pressing "enter" the string is appended cand trimite ia si un enter or sth la final
+        for (int j = 0; j < ccode.length()-1; j++) {            // -1 because when pressing "enter", the character '\n' is added to the string
           sound(ccode[j]);
           delay(unit);
         }
