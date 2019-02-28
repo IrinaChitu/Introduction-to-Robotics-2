@@ -39,7 +39,7 @@ unsigned long debounceDelay = 50;
 //ENCODE
 String text;
 String ccode;
-int unit = 85;                                                  // dot time  
+int unit = 85;                                                   // dot time  
 
 int selector = -1;
 
@@ -51,7 +51,7 @@ void setup() {
 
   lcd.begin(columns, rows);
   lcd.clear();
-  lcd.setCursor(0, 0);                                          // (col, row)
+  lcd.setCursor(0, 0);                                           // (col, row)
 
   Serial.begin(9600);
 }
@@ -172,7 +172,7 @@ void Decode() {
 }
 
 void deleteascii() {
-  strcpy(code, "");                                             // clear last "pressed" cw code that didn't show up yet on the LCD
+  strcpy(code, "");                                             // clear last "pressed" cw that didn't show up yet on the LCD
   if (lastPrint < 0) {
     if (line1[columns-1] != '\0') {                             // deleted the (whole) second line => change cursor from 2nd line to 1st one
       lastPrint = columns - 1;
@@ -242,7 +242,7 @@ void printASCII(int asciinumber) {                              // print the asc
   }
 }
 
-void decodeCWtoASCII() {                                        // translate continuous wave (morse) code to ASCII
+void decodeCWtoASCII() {                                        // translate continuous wave (morse code) to ASCII
   if (strcmp(code,".-") == 0) printASCII(65);      // A
   if (strcmp(code,"-...") == 0) printASCII(66);    // B
   if (strcmp(code,"-.-.") == 0) printASCII(67);    // C
@@ -305,6 +305,11 @@ void decodeCWtoASCII() {                                        // translate con
 
 void Encode() {
   digitalWrite(LEDBLUE, HIGH);
+  int switchState = digitalRead(BUTTON);
+  if (switchState == HIGH) {
+    selector = 2;
+    delay(70);
+  }
   if (Serial.available() > 0) {
     text = Serial.readString();
     Serial.print(text);
