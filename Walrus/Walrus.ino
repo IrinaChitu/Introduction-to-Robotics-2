@@ -1,7 +1,7 @@
 #include <LiquidCrystal.h>
 
-#define LEDALBASTRU 9
-#define LEDROSU 8
+#define LEDBLUE 9
+#define LEDRED 8
 #define BUTTON 12
 #define BACKSPACE 13
 #define BUZZER 11
@@ -15,20 +15,20 @@ const int rows = 2;
 int lcdindex = 0;
 int line1[columns];
 int line2[columns];
-int ultPrint;
-bool prevLine = false; //pt cand sterg pana la linia anterioara el incepe sa scrie pe r1 unde ramasese pe r2 de fapt
+int lastPrint;                                                  // index of the last printed character
+bool prevLine = false;                                          // used to check if a whole row was deleted by pressing the backsapace button 
 
-int unit3 = 350;
+int unit3 = 350;                                                // 3 units - dash time
 char code[20];
 
-int stareLedAlbastru = LOW;
-int stareLedRosu = LOW;
+int stateLedBlue = LOW;
+int stateLedRed = LOW;
 
 bool up = true;
-int stareButon;
-int ultimaStareButon = LOW;
-int stareBKSP;
-int ultimaStareBKSP = LOW;
+int stateButton;
+int lastStateButton = LOW;
+int stateBKSP;
+int lastStateBKSP = LOW;
 
 unsigned long timeElapsedPressed;
 unsigned long timeElapsedNOTPressed = -1;
@@ -39,19 +39,19 @@ unsigned long debounceDelay = 50;
 //ENCODE
 String text;
 String ccode;
-int unit = 85;
+int unit = 85;                                                  // dot time  
 
 int selector = -1;
 
 void setup() {
-  pinMode(LEDALBASTRU, OUTPUT);
-  pinMode(LEDROSU, OUTPUT);
+  pinMode(LEDBLUE, OUTPUT);
+  pinMode(LEDRED, OUTPUT);
   pinMode(BUTTON, INPUT_PULLUP);
   pinMode(BACKSPACE, INPUT_PULLUP);
 
   lcd.begin(columns, rows);
   lcd.clear();
-  lcd.setCursor(0, 0);  //(col, row)
+  lcd.setCursor(0, 0);                                          // (col, row)
 
   Serial.begin(9600);
 }
@@ -61,23 +61,23 @@ void loop() {
 }
 
 void selectMode() {
-  int stareButon = digitalRead(BUTTON);
-  int stareBKSP = digitalRead(BACKSPACE);
+  int stateButton = digitalRead(BUTTON);
+  int stateBKSP = digitalRead(BACKSPACE);
   
   if (selector == -1) {
-    if (stareBKSP == HIGH) {
+    if (stateBKSP == HIGH) {
       selector = 1;
     }
-    if (stareButon == HIGH) {
+    if (stateButton == HIGH) {
       selector = 2;
       delay(70);
     }
   }
   
-  if (selector == 1) {                                          //Encode: text to audio cw
+  if (selector == 1) {                                          // Encode: text to audio cw
     Encode();
   }
-  else if (selector == 2) {                                     //Decode: cw(button) to text(LCD)
+  else if (selector == 2) {                                     // Decode: cw(button) to text(LCD)
     Decode();
   }  
 }
@@ -86,31 +86,30 @@ void Decode() {
   int reading = digitalRead(BUTTON);
   int deletebtn = digitalRead(BACKSPACE);
 
-//buton scriere
-  if (reading != ultimaStareButon) {
-      lastDebounceTime = millis();                              //resetez timerul pt debounce
+// send cw by pressing the button
+  if (reading != lastStateButton) {
+      lastDebounceTime = millis();                              // debounce - reset the timer
   }
 
-  if ( (millis() - lastDebounceTime) > debounceDelay ) {        //daca a trecut timpul setat in debounceDelay
-    if (reading != stareButon) {                                // si daca noua stare e diferita de cea salvata in buttonState
-      stareButon = reading;                                     //actualizez buttonState
+  if ( (millis() - lastDebounceTime) > debounceDelay ) {        
+    if (reading != stateButton) {                               
+      stateButton = reading;                                    
       
-      if (stareButon == HIGH) {                                 //apasat
+      if (stateButton == HIGH) {                                // pressed
       tone(BUZZER, NOTE_A3);
         if (up == true) {
           timeElapsedPressed = millis();
           up = false;
-          if (timeElapsedNOTPressed > 0) {                      // a fost deja "tastat" un caracter
+          if (timeElapsedNOTPressed > 0) {                      // a dot or a line was already pressed
             timeElapsedNOTPressed = millis() - timeElapsedNOTPressed;
-  //        if (timeElapsedNOTPressed <= unit3) {               // spatiu in litera
-  //          decodeCWtoASCII();
-  //        }
-            if (timeElapsedNOTPressed > unit3 && timeElapsedNOTPressed <= 2*unit3) {          // spatiu intre litere
+//          if (timeElapsedNOTPressed <= unit3) {               // space within a character
+//          }
+            if (timeElapsedNOTPressed > unit3 && timeElapsedNOTPressed <= 2*unit3) {        // space between character
               decodeCWtoASCII();
               strcpy(code, "");
               Serial.print("/");
             }
-            if (timeElapsedNOTPressed > 2*unit3) {              // spatiu intre cuvinte
+            if (timeElapsedNOTPressed > 2*unit3) {              // space between words
               decodeCWtoASCII();
               strcpy(code, "");
               printASCII(32);   //space
@@ -119,100 +118,95 @@ void Decode() {
           }
         }         
       }
-      if (stareButon == LOW) { 
+      
+      if (stateButton == LOW) { 
         noTone(BUZZER);
         if (up == false) {
           timeElapsedPressed = millis() - timeElapsedPressed;
-          if (stareLedAlbastru == HIGH) {
+          if (stateLedBlue == HIGH) {
             strcat(code,".");
             Serial.print(".");
           }
-          else if (stareLedRosu == HIGH) {
+          else if (stateLedRed == HIGH) {
             strcat(code,"-");
             Serial.print("-");
           }
           timeElapsedNOTPressed = millis();
         }
-        stareLedAlbastru = LOW;
-        stareLedRosu = LOW;
+        stateLedBlue = LOW;
+        stateLedRed = LOW;
         up = true;
       }
     }
-    else if(reading = HIGH) {                                   //vreau sa determin LED ul care trebuie aprins in functie de durata
-//astea ar putea fi apelate cumva doar o data
+    
+    else if (reading = HIGH) {                                  // turn on the "training" LEDs
       if (millis() - timeElapsedPressed <= unit3) {             // dot
-        stareLedAlbastru = HIGH;
-        stareLedRosu = LOW;
+        stateLedBlue = HIGH;
+        stateLedRed = LOW;
       }
       else if (millis() - timeElapsedPressed > unit3) {         // dash
-        stareLedAlbastru = LOW;
-        stareLedRosu = HIGH;
+        stateLedBlue = LOW;
+        stateLedRed = HIGH;
       }
     }
-//    else {
-//       stareLedAlbastru = LOW;
-//       stareLedRosu = LOW;
-//    }
   }
-  ultimaStareButon = reading;                                   //actualizez lastButtonState
+  lastStateButton = reading; 
 
-//buton stergere
-  if (deletebtn != ultimaStareBKSP) {
-      lastDebounceTimeBKSP = millis();                          //resetez timerul pt debounce
+// delete last character on LCD
+  if (deletebtn != lastStateBKSP) {
+      lastDebounceTimeBKSP = millis();                          // debounce - reset the timer
   }
 
-  if ( (millis() - lastDebounceTimeBKSP) > debounceDelay) {     //daca a trecut timpul setat in debounceDelay
-      if (deletebtn != stareBKSP)                               // si daca noua stare e diferita de cea salvata in buttonState
+  if ( (millis() - lastDebounceTimeBKSP) > debounceDelay ) {   
+      if (deletebtn != stateBKSP)
       {
-            stareBKSP = deletebtn;                              //actualizez buttonState
-
-            if (stareBKSP == HIGH) {                            //apasat
+            stateBKSP = deletebtn;
+            if (stateBKSP == HIGH) {
                 deleteascii();
             }
       }
   }
-  ultimaStareBKSP = deletebtn;                                  //actualizez lastButtonState
-  digitalWrite(LEDALBASTRU, stareLedAlbastru);
-  digitalWrite(LEDROSU, stareLedRosu);
+  lastStateBKSP = deletebtn; 
+  digitalWrite(LEDBLUE, stateLedBlue);
+  digitalWrite(LEDRED, stateLedRed);
 }
 
 void deleteascii() {
-  strcpy(code, "");                                             //curat ultimele tastari care inca nu au aparut pe LCD
-                                                                //sterg si spatiul care se va adauga din cauza pauzei?
-  if (ultPrint < 0) {
-    if (line1[columns-1] != '\0') {                             // am sters toata linia 2
-      ultPrint = columns - 1;
-      line1[ultPrint] = '\0';
-      lcd.setCursor(ultPrint, 0);
-      lcd.write(line1[ultPrint]);
-      ultPrint--;
+  strcpy(code, "");                                             // clear last "pressed" cw code that didn't show up yet on the LCD
+  if (lastPrint < 0) {
+    if (line1[columns-1] != '\0') {                             // deleted the (whole) second line => change cursor from 2nd line to 1st one
+      lastPrint = columns - 1;
+      line1[lastPrint] = '\0';
+      lcd.setCursor(lastPrint, 0);
+      lcd.write(line1[lastPrint]);
+      lastPrint--;
       prevLine = true;
     }
     else {
-      ultPrint = 0;
+      lastPrint = 0;
     }
   }
   else {
-    if (line1[columns-1] != '\0') {                            //prima linie e completa deci sunt pe lin 2
-      line2[ultPrint] = '\0';
-      lcd.setCursor(ultPrint, 1);
-      lcd.write(line2[ultPrint]);
+    if (line1[columns-1] != '\0') {                             // completed the first row => go to the 2nd one
+      line2[lastPrint] = '\0';
+      lcd.setCursor(lastPrint, 1);
+      lcd.write(line2[lastPrint]);
     }
     else {
-      line1[ultPrint] = '\0';
-      lcd.setCursor(ultPrint, 0);
-      lcd.write(line1[ultPrint]);
+      line1[lastPrint] = '\0';
+      lcd.setCursor(lastPrint, 0);
+      lcd.write(line1[lastPrint]);
     }
-    ultPrint--;
+    lastPrint--;
   }
 }
     
-void printASCII(int asciinumber) {                             // print the ascii code to the lcd one a time so we can generate special letters ////    
-  if (lcdindex > columns-1) {                                  //daca depasesc dimensiunea unei linii
-    if (line2[0] == '\0') {                                    //pana acum eram pe primul rand => treci pe randul urmator
+void printASCII(int asciinumber) {                              // print the ascii code to the LCD one a time   
+  if (lcdindex > columns-1) {                                   // exceeds the length of one LCD line
+    if (line2[0] == '\0') {                                     // 2nd line is clear 
       lcd.setCursor(0, 1);
     }
-    else {                                                     //deja scriam pe randul 2 asa ca il voi copia pe primul rand
+    else {                                                      // we were already writing on the second row => copy 2nd to 1st
       lcd.clear();
       for (int i = 0; i < columns; i++) {
           lcd.setCursor(i, 0);
@@ -224,12 +218,13 @@ void printASCII(int asciinumber) {                             // print the asci
     lcdindex = 0;
     line2[lcdindex] = asciinumber;
     lcd.write(asciinumber);
-    ultPrint = lcdindex;
+    lastPrint = lcdindex;
     lcdindex++;
   }
-  else {                                                       //continui sa scriu unde eram
-    if ( (line2[0] == '\0' && prevLine == true) || line2[0] != '\0') {
-      if (prevLine == true) {
+  
+  else {
+    if ( (line2[0] == '\0' && prevLine == true) || line2[0] != '\0' ) {
+      if (prevLine == true) { 
         line2[0] = " ";
       }
       prevLine = false;
@@ -237,17 +232,17 @@ void printASCII(int asciinumber) {                             // print the asci
       lcd.setCursor(lcdindex, 1);
       lcd.write(asciinumber);
     }
-    else if(line2[0] == '\0') {                                //scrie pe primul rand in continuare
+    else if (line2[0] == '\0') {
       line1[lcdindex] = asciinumber;
       lcd.setCursor(lcdindex, 0);
       lcd.write(asciinumber);
     }
-    ultPrint = lcdindex;
+    lastPrint = lcdindex;
     lcdindex++;
   }
 }
 
-void decodeCWtoASCII() {                                       // translate continuous wave (morse) code to ASCII
+void decodeCWtoASCII() {                                        // translate continuous wave (morse) code to ASCII
   if (strcmp(code,".-") == 0) printASCII(65);      // A
   if (strcmp(code,"-...") == 0) printASCII(66);    // B
   if (strcmp(code,"-.-.") == 0) printASCII(67);    // C
@@ -309,7 +304,7 @@ void decodeCWtoASCII() {                                       // translate cont
 
 
 void Encode() {
-  digitalWrite(LEDALBASTRU, HIGH);
+  digitalWrite(LEDBLUE, HIGH);
   if (Serial.available() > 0) {
     text = Serial.readString();
     Serial.print(text);
@@ -321,7 +316,7 @@ void Encode() {
       else {
         encodeASCIItoCW(text[i]);
         Serial.println(ccode);
-        for (int j = 0; j < ccode.length()-1; j++) {                  //cand trimite ia si un enter or sth la final
+        for (int j = 0; j < ccode.length()-1; j++) {            // -1 because when pressing "enter" the string is appended cand trimite ia si un enter or sth la final
           sound(ccode[j]);
           delay(unit);
         }
@@ -355,7 +350,7 @@ void dash() {
   noTone(BUZZER);
 }
 
-void encodeASCIItoCW(char c) {                                       // translate continuous wave (morse) code to ASCII
+void encodeASCIItoCW(char c) {                                  // translate continuous wave (morse) code to ASCII
   if (c == 'A') ccode = ".-";      // A
   if (c == 'B') ccode = "-...";    // B
   if (c == 'C') ccode = "-.-.";    // C
