@@ -49,5 +49,7 @@ I uploaded below a short video and a few pictures for a better understanding.
                                                     ◄♠♣♦♥IMPROVEMENTS♥♦♣♠►
 → Adjust the morse code transmission rate to the speed of the current "player"
 - in the beginning, he sends three V letters and then the algorithm adjusts the pauses 
+
 → Toggle between modes
+
 → Instead of pressing a button, simply knock
