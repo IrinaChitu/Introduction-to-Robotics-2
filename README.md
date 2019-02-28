@@ -8,7 +8,7 @@ In order to awake once again this passion in the new generation, I brought back 
 
 Using this device, one can both decode morse code and encode natural language. Walrus is a learning assistant, its main feature being the two LEDs on the head. They both guide beginners, showing them when they exceed the length of a dot and are now aiming for a dash. Moreover, you can delete the last character written by pressing a button.
 
-                                                    ◄♠♣♦♥CONVENTIONS♥♦♣♠►
+                                                   ◄♠♣♦♥CONVENTIONS♥♦♣♠►
 The dot duration is the basic unit of time measurement in Morse code transmission. 
 
 The duration of a dash is three times the duration of a dot. 
